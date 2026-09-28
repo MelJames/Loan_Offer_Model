@@ -112,15 +112,19 @@ def impute_unrealistic_age(customers_df: DataFrame,
 def impute_null_balances(transactions_df: DataFrame,
                          order_col: str = "__index_level_0__") -> DataFrame:
     """
-    Forward-fill null BALANCE values using the last known balance adjusted
-    by cumulative transaction amounts.
+    Impute null BALANCE values using a combination of forward-fill and
+    backward-fill based on cumulative transaction amounts.
 
-    For consecutive rows with a null BALANCE, the imputed value is:
+    For trailing nulls (rows that follow a non-null BALANCE), the imputed
+    value is:
         last_non_null_balance + cumulative_sum(AMOUNT) - first_amount_in_group
 
-    where the "group" starts at the row holding the last non-null BALANCE
-    and extends through the following null rows until the next non-null
-    BALANCE is encountered.
+    For leading nulls (rows that precede any non-null BALANCE), the imputed
+    value is:
+        next_non_null_balance - cumulative_sum(AMOUNT from current row to end of group)
+
+    where the "group" starts at the row holding a non-null BALANCE and extends
+    through consecutive null rows until the next non-null BALANCE is encountered.
 
     Args:
         transactions_df: Raw transactions DataFrame.
@@ -131,7 +135,8 @@ def impute_null_balances(transactions_df: DataFrame,
     Returns:
         DataFrame with the same schema, null BALANCE values imputed.
     """
-    # Window to carry forward the last non-null balance and create group boundaries
+    # Forward-looking window: carry forward the last non-null balance and create
+    # group boundaries (a new group starts at each non-null BALANCE row)
     w_forward = (
         Window
         .partitionBy("ID")
@@ -145,7 +150,7 @@ def impute_null_balances(transactions_df: DataFrame,
         .withColumn("group_id", F.count(F.when(F.col("BALANCE").isNotNull(), 1)).over(w_forward))
     )
 
-    # Window within each group for cumulative sum of AMOUNT
+    # Window within each group for cumulative sum of AMOUNT and first AMOUNT in group
     w_group = (
         Window
         .partitionBy("ID", "group_id")
@@ -159,17 +164,55 @@ def impute_null_balances(transactions_df: DataFrame,
         .withColumn("first_amount", F.first(F.col("AMOUNT")).over(w_group))
     )
 
-    # Impute: last_balance + cumulative amounts (excluding the row that had the non-null balance)
+    # Backward-looking window: get the next non-null BALANCE for backward fill of
+    # leading nulls (rows where BALANCE is null and there is no preceding non-null
+    # BALANCE to forward-fill from)
+    w_next = (
+        Window
+        .partitionBy("ID")
+        .orderBy(order_col)
+        .rowsBetween(Window.currentRow, Window.unboundedFollowing)
+    )
+
+    df = df.withColumn("next_balance", F.first(F.col("BALANCE"), ignorenulls=True).over(w_next))
+
+    # Window from current row to end within group — used for backward fill of leading nulls
+    w_group_after = (
+        Window
+        .partitionBy("ID", "group_id")
+        .orderBy(order_col)
+        .rowsBetween(Window.currentRow, Window.unboundedFollowing)
+    )
+
+    df = df.withColumn("sum_after_in_group", F.sum(F.col("AMOUNT")).over(w_group_after))
+
+    # Impute null BALANCE:
+    #   - Leading nulls (last_balance is null, i.e. no preceding non-null BALANCE):
+    #     backward fill using the next non-null BALANCE minus the cumulative sum
+    #     of AMOUNTs from the current row to the end of the leading-null group.
+    #     E.g., rows 1,2 are null and row 3 has BALANCE:
+    #       row2.BALANCE = row3.BALANCE - row2.AMOUNT
+    #       row1.BALANCE = row3.BALANCE - row1.AMOUNT - row2.AMOUNT
+    #   - Trailing nulls (last_balance is not null): forward fill.
+    #     imputed = last_balance + cumsum_amount - first_amount
     df = (
         df
         .withColumn(
             "BALANCE",
             F.when(
                 F.col("BALANCE").isNull(),
-                F.col("last_balance") + F.col("cumsum_amount") - F.col("first_amount"),
+                F.when(
+                    F.col("last_balance").isNull(),
+                    F.col("next_balance") - F.col("sum_after_in_group"),
+                ).otherwise(
+                    F.col("last_balance") + F.col("cumsum_amount") - F.col("first_amount"),
+                ),
             ).otherwise(F.col("BALANCE")),
         )
-        .drop("last_balance", "group_id", "cumsum_amount", "first_amount")
+        .drop(
+            "last_balance", "group_id", "cumsum_amount", "first_amount",
+            "next_balance", "sum_after_in_group",
+        )
     )
 
     return df

@@ -1,0 +1,17 @@
+customer:
+  type: spark.SparkDataset
+  filepath:  data/01_raw/customers.parquet
+  table: workspace.default.customers
+  format: delta
+
+loans:
+  type: spark.SparkDataset
+  filepath:  data/01_raw/loans.parquet
+  table: workspace.default.loans
+  format: delta
+
+transactions:
+  type: spark.SparkDataset
+  filepath:  data/01_raw/transactions.parquet
+  table: workspace.default.transactions
+  format: delta

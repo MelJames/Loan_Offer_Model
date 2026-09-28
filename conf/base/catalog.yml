@@ -15,3 +15,15 @@ transactions:
   filepath:  data/01_raw/transactions.parquet
   table: workspace.default.transactions
   format: delta
+
+prep_customer:
+  type: spark.SparkDataset
+  filepath:  data/02_intermediate/customers_prep
+  table: workspace.default.customers_prep
+  format: delta
+
+prep_transactions:
+  type: spark.SparkDataset
+  filepath:  data/02_intermediate/transactions_prep
+  table: workspace.default.transactions_prep
+  format: delta

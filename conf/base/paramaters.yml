@@ -1,0 +1,10 @@
+# Data science pipeline parameters
+
+# create_loan_features
+reference_date: "2022-08-30"      # date used to compute DAYS_SINCE_LAST_OFFER
+
+# create_transaction_features
+analysis_level: "MONTH"           # time bucket: MONTH, WEEK, or DAY
+
+# remove_correlated_features
+correlation_threshold: 0.80       # pairs with |corr| above this are dropped

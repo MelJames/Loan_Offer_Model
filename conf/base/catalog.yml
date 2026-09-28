@@ -27,3 +27,15 @@ prep_transactions:
   filepath:  data/02_intermediate/transactions_prep
   table: workspace.default.transactions_prep
   format: delta
+
+consolidated:
+  type: spark.SparkDataset
+  filepath:  data/03_primary/consolidated_data
+  table: workspace.default.consolidated_data
+  format: delta
+
+features:
+  type: spark.SparkDataset
+  filepath:  data/04_feature/features
+  table: workspace.default.features
+  format: delta

@@ -1,29 +1,29 @@
 """
-Data science pipeline for the Loan Offer Model.
+Features pipeline for the Loan Offer Model.
 
 This module wires the feature-engineering nodes together in a Kedro-style
 sequence, using the project's own Catalog class (src.catalog_loader.Catalog)
 for loading prepared data and saving consolidated / feature results.
 
 Usage (from a notebook or script):
-    from src.pipelines.data_science.pipeline import run_pipeline
+    from src.pipelines.features.pipeline import run_pipeline
     run_pipeline(spark, catalog_path)
 
 Or step-by-step:
-    from src.pipelines.data_science.pipeline import DataSciencePipeline
-    pipeline = DataSciencePipeline(spark, catalog_path)
+    from src.pipelines.features.pipeline import FeaturesPipeline
+    pipeline = FeaturesPipeline(spark, catalog_path)
     pipeline.run()
 """
 
 from pyspark.sql import SparkSession
 
 from src.catalog_loader import Catalog
-from src.pipelines.data_science import nodes
+from src.pipelines.features import nodes
 
 
-class DataSciencePipeline:
+class FeaturesPipeline:
     """
-    Orchestrates the data science (feature engineering) pipeline.
+    Orchestrates the feature engineering pipeline.
 
     Nodes are registered as (name, callable, inputs, outputs) tuples and
     executed in order.  Each node receives DataFrames loaded from the catalog
@@ -134,17 +134,17 @@ class DataSciencePipeline:
 
             print(f"    Node '{name}' completed.\n")
 
-        print("=== Data science pipeline finished ===")
+        print("=== Features pipeline finished ===")
 
 
 def run_pipeline(spark: SparkSession, catalog_path: str):
     """
-    Convenience function to run the full data science pipeline.
+    Convenience function to run the full features pipeline.
 
     Args:
         spark:        Active SparkSession.
         catalog_path: Path to catalog.yml.
     """
-    pipeline = DataSciencePipeline(spark, catalog_path)
+    pipeline = FeaturesPipeline(spark, catalog_path)
     pipeline.run()
     return pipeline

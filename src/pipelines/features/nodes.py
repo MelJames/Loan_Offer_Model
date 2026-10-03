@@ -1,5 +1,5 @@
 """
-Data science nodes for the Loan Offer Model pipeline.
+Feature engineering nodes for the Loan Offer Model pipeline.
 
 These nodes transform prepared loan, customer, and transaction data into
 consolidated data and engineered features.  Each function takes one or more
